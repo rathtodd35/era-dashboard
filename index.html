@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERA Test Camp - Coverage Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 16px;
+      line-height: 1.4;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+      color: #1a1a1a;
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .meta .timestamp {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .meta button {
+      background: #4472C4;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .meta button:hover { background: #3561a8; }
+    .meta button:active { background: #2a4f8c; }
+    .summary {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .summary .stat {
+      background: white;
+      border-radius: 6px;
+      padding: 12px 16px;
+      flex: 1;
+      min-width: 100px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stat .number { font-size: 1.8rem; font-weight: 700; }
+    .stat .label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+    .stat.red .number { color: #c0392b; }
+    .stat.yellow .number { color: #d4a017; }
+    .stat.green .number { color: #27ae60; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    th {
+      background: #4472C4;
+      color: white;
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 0.9rem;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr.zero { background: #fde8e8; }
+    tr.low { background: #fef9e7; }
+    tr.good { background: #e8f8f0; }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+      font-size: 1rem;
+    }
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: #c0392b;
+      font-size: 1rem;
+    }
+    @media (max-width: 500px) {
+      h1 { font-size: 1.2rem; }
+      td, th { padding: 8px 8px; font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ERA Test Camp - Coverage Dashboard</h1>
+    <div class="meta">
+      <span class="timestamp" id="timestamp">Loading...</span>
+      <button onclick="fetchData()">Refresh</button>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div id="content">
+      <div class="loading">Loading coverage data...</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpjtwoEMprsZXCoBl5F5g9_fv_5pkPQ5CM9lJh5TfNzcO0_SllKZMznV0TjY2kkQIkKuhwFtikaR_k/pub?gid=1245244082&single=true&output=csv";
+
+    function fetchData() {
+      document.getElementById("content").innerHTML = '<div class="loading">Loading...</div>';
+      document.getElementById("summary").innerHTML = "";
+
+      // Cache-bust to get fresh data
+      var url = CSV_URL + "&_t=" + Date.now();
+
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (results.errors.length > 0 && results.data.length === 0) {
+            document.getElementById("content").innerHTML =
+              '<div class="error">Failed to load data. Check that the sheet is published.</div>';
+            return;
+          }
+          renderTable(results.data);
+          renderSummary(results.data);
+          document.getElementById("timestamp").textContent =
+            "Last updated: " + new Date().toLocaleString();
+        },
+        error: function(err) {
+          document.getElementById("content").innerHTML =
+            '<div class="error">Error: ' + err.message + '</div>';
+        }
+      });
+    }
+
+    function renderSummary(rows) {
+      var zero = 0, low = 0, good = 0;
+      rows.forEach(function(row) {
+        var count = parseInt(row["Eval Count"] || "0", 10);
+        if (count === 0) zero++;
+        else if (count <= 2) low++;
+        else good++;
+      });
+
+      document.getElementById("summary").innerHTML =
+        '<div class="stat red"><div class="number">' + zero + '</div><div class="label">Zero Evals</div></div>' +
+        '<div class="stat yellow"><div class="number">' + low + '</div><div class="label">1-2 Evals</div></div>' +
+        '<div class="stat green"><div class="number">' + good + '</div><div class="label">3+ Evals</div></div>';
+    }
+
+    function renderTable(rows) {
+      // Sort: zeros first, then by name
+      rows.sort(function(a, b) {
+        var ca = parseInt(a["Eval Count"] || "0", 10);
+        var cb = parseInt(b["Eval Count"] || "0", 10);
+        if (ca !== cb) return ca - cb;
+        return (a["Participant"] || "").localeCompare(b["Participant"] || "");
+      });
+
+      var html = "<table><thead><tr><th>Participant</th><th>Role</th><th>Eval Count</th></tr></thead><tbody>";
+      rows.forEach(function(row) {
+        var count = parseInt(row["Eval Count"] || "0", 10);
+        var cls = "";
+        if (count === 0) cls = "zero";
+        else if (count <= 2) cls = "low";
+        else cls = "good";
+        html += '<tr class="' + cls + '">' +
+          "<td>" + escHtml(row["Participant"] || "") + "</td>" +
+          "<td>" + escHtml(row["Role"] || "") + "</td>" +
+          "<td>" + count + "</td></tr>";
+      });
+      html += "</tbody></table>";
+      document.getElementById("content").innerHTML = html;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Load on page open
+    fetchData();
+  </script>
+</body>
+</html>

@@ -170,6 +170,7 @@
       font-weight: 600;
       letter-spacing: 0.02em;
     }
+    th.num, td.num { text-align: center; }
     td {
       padding: 10px 14px;
       border-bottom: 1px solid #f0f2f4;
@@ -179,9 +180,9 @@
     tr.zero { background: #fef2f2; }
     tr.low { background: #fefce8; }
     tr.good { background: #f0fdf4; }
-    tr.zero td:last-child { color: #c0392b; font-weight: 600; }
-    tr.low td:last-child { color: #b8860b; font-weight: 600; }
-    tr.good td:last-child { color: #1a8a5c; font-weight: 600; }
+    td.total-zero { color: #c0392b; font-weight: 600; }
+    td.total-low { color: #b8860b; font-weight: 600; }
+    td.total-good { color: #1a8a5c; font-weight: 600; }
 
     .loading, .error {
       text-align: center;
@@ -262,11 +263,19 @@
     var activeFilter = "all";
     var selectedCamp = null;
 
+    // --- Parse a row into consistent numbers ---
+    function parseRow(row) {
+      return {
+        name: row["Participant"] || "",
+        rc: parseInt(row["RC Evals"] || "0", 10),
+        ro: parseInt(row["RO Evals"] || "0", 10),
+        total: parseInt(row["Total Evals"] || "0", 10)
+      };
+    }
+
     // --- Camp picker ---
     function initCampPicker() {
       var select = document.getElementById("camp-select");
-
-      // Populate options
       CAMPS.forEach(function(camp, i) {
         var opt = document.createElement("option");
         opt.value = i;
@@ -274,7 +283,6 @@
         select.appendChild(opt);
       });
 
-      // Restore from localStorage, default to last camp (newest)
       var saved = localStorage.getItem("selectedCamp");
       var savedIndex = -1;
       if (saved) {
@@ -286,7 +294,6 @@
       select.value = startIndex;
       selectCamp(startIndex);
 
-      // On change
       select.addEventListener("change", function() {
         selectCamp(parseInt(select.value, 10));
       });
@@ -314,13 +321,12 @@
     function filterRows(rows) {
       if (activeFilter === "all") return rows;
       return rows.filter(function(row) {
-        var count = parseInt(row["Eval Count"] || "0", 10);
-        var role = (row["Role"] || "").trim().toUpperCase();
+        var p = parseRow(row);
         switch (activeFilter) {
-          case "rc": return role === "RC";
-          case "ro": return role === "RO";
-          case "zero": return count === 0;
-          case "attention": return count < 3;
+          case "rc": return p.rc > 0;
+          case "ro": return p.ro > 0;
+          case "zero": return p.total === 0;
+          case "attention": return p.total < 3;
           default: return true;
         }
       });
@@ -357,13 +363,13 @@
       });
     }
 
-    // --- Render summary cards ---
+    // --- Render summary cards (based on Total Evals) ---
     function renderSummary(rows) {
       var zero = 0, low = 0, good = 0;
       rows.forEach(function(row) {
-        var count = parseInt(row["Eval Count"] || "0", 10);
-        if (count === 0) zero++;
-        else if (count <= 2) low++;
+        var p = parseRow(row);
+        if (p.total === 0) zero++;
+        else if (p.total <= 2) low++;
         else good++;
       });
 
@@ -381,21 +387,23 @@
         return;
       }
 
+      // Sort: lowest total first, then by name
       rows.sort(function(a, b) {
-        var ca = parseInt(a["Eval Count"] || "0", 10);
-        var cb = parseInt(b["Eval Count"] || "0", 10);
-        if (ca !== cb) return ca - cb;
-        return (a["Participant"] || "").localeCompare(b["Participant"] || "");
+        var pa = parseRow(a), pb = parseRow(b);
+        if (pa.total !== pb.total) return pa.total - pb.total;
+        return pa.name.localeCompare(pb.name);
       });
 
-      var html = "<table><thead><tr><th>Participant</th><th>Role</th><th>Evals</th></tr></thead><tbody>";
+      var html = '<table><thead><tr><th>Participant</th><th class="num">RC</th><th class="num">RO</th><th class="num">Total</th></tr></thead><tbody>';
       rows.forEach(function(row) {
-        var count = parseInt(row["Eval Count"] || "0", 10);
-        var cls = count === 0 ? "zero" : (count <= 2 ? "low" : "good");
+        var p = parseRow(row);
+        var cls = p.total === 0 ? "zero" : (p.total <= 2 ? "low" : "good");
+        var totalCls = p.total === 0 ? "total-zero" : (p.total <= 2 ? "total-low" : "total-good");
         html += '<tr class="' + cls + '">' +
-          "<td>" + escHtml(row["Participant"] || "") + "</td>" +
-          "<td>" + escHtml(row["Role"] || "") + "</td>" +
-          "<td>" + count + "</td></tr>";
+          "<td>" + escHtml(p.name) + "</td>" +
+          '<td class="num">' + p.rc + "</td>" +
+          '<td class="num">' + p.ro + "</td>" +
+          '<td class="num ' + totalCls + '">' + p.total + "</td></tr>";
       });
       html += "</tbody></table>";
       document.getElementById("content").innerHTML = html;

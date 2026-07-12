@@ -257,9 +257,10 @@
       </div>
     </div>
 
-    <div class="camp-picker">
+    <div class="camp-picker" id="camp-picker">
       <label for="camp-select">Camp:</label>
       <select id="camp-select"></select>
+      <span id="camp-name" style="display:none; font-size:0.85rem; font-weight:600; color:#1a2332;"></span>
     </div>
 
     <div id="pdf-target">
@@ -347,9 +348,16 @@
       select.value = startIndex;
       selectCamp(startIndex);
 
-      select.addEventListener("change", function() {
-        selectCamp(parseInt(select.value, 10));
-      });
+      if (campParam) {
+        select.style.display = "none";
+        var nameEl = document.getElementById("camp-name");
+        nameEl.textContent = CAMPS[startIndex].name;
+        nameEl.style.display = "";
+      } else {
+        select.addEventListener("change", function() {
+          selectCamp(parseInt(select.value, 10));
+        });
+      }
     }
 
     function selectCamp(index) {

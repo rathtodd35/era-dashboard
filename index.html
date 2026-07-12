@@ -127,13 +127,46 @@
     .stat.yellow .number { color: #b8860b; }
     .stat.green .number { color: #1a8a5c; }
 
-    /* Filters */
-    .filters {
+    /* Filters + Sort */
+    .filter-bar {
       display: flex;
-      gap: 6px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
+    .filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .sort-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sort-control .sort-label {
+      font-size: 0.72rem;
+      color: #5a6a7a;
+      font-weight: 500;
+    }
+    .sort-btn {
+      background: white;
+      color: #3a4a5a;
+      border: 1px solid #d0d7de;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sort-btn:hover { border-color: #0d6e6e; color: #0d6e6e; }
+    .sort-btn .arrow { font-size: 0.9rem; line-height: 1; }
     .filter-btn {
       background: white;
       color: #3a4a5a;
@@ -231,12 +264,20 @@
 
     <div id="pdf-target">
       <div class="summary" id="summary"></div>
-      <div class="filters" id="filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="rc">RC Only</button>
-        <button class="filter-btn" data-filter="ro">RO Only</button>
-        <button class="filter-btn" data-filter="zero">Zero Evals</button>
-        <button class="filter-btn" data-filter="attention">Needs Attention</button>
+      <div class="filter-bar">
+        <div class="filters" id="filters">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="rc">RC Only</button>
+          <button class="filter-btn" data-filter="ro">RO Only</button>
+          <button class="filter-btn" data-filter="zero">Zero Evals</button>
+          <button class="filter-btn" data-filter="attention">Needs Attention</button>
+        </div>
+        <div class="sort-control">
+          <span class="sort-label">Sort:</span>
+          <button class="sort-btn" id="sort-toggle" onclick="toggleSort()">
+            <span>Fewest first</span><span class="arrow">&#9650;</span>
+          </button>
+        </div>
       </div>
       <div id="content">
         <div class="loading">Loading coverage data...</div>
@@ -261,6 +302,7 @@
 
     var allRows = [];
     var activeFilter = "all";
+    var sortAsc = true;
     var selectedCamp = null;
 
     // --- Parse a row into consistent numbers ---
@@ -387,10 +429,10 @@
         return;
       }
 
-      // Sort: lowest total first, then by name
       rows.sort(function(a, b) {
         var pa = parseRow(a), pb = parseRow(b);
-        if (pa.total !== pb.total) return pa.total - pb.total;
+        var dir = sortAsc ? 1 : -1;
+        if (pa.total !== pb.total) return (pa.total - pb.total) * dir;
         return pa.name.localeCompare(pb.name);
       });
 
@@ -425,6 +467,15 @@
       };
 
       html2pdf().set(opt).from(element).save();
+    }
+
+    function toggleSort() {
+      sortAsc = !sortAsc;
+      var btn = document.getElementById("sort-toggle");
+      btn.innerHTML = sortAsc
+        ? '<span>Fewest first</span><span class="arrow">&#9650;</span>'
+        : '<span>Most first</span><span class="arrow">&#9660;</span>';
+      renderTable(filterRows(allRows));
     }
 
     function escHtml(s) {

@@ -325,14 +325,25 @@
         select.appendChild(opt);
       });
 
-      var saved = localStorage.getItem("selectedCamp");
-      var savedIndex = -1;
-      if (saved) {
+      var startIndex = CAMPS.length - 1;
+
+      // Check URL ?camp= parameter first
+      var params = new URLSearchParams(window.location.search);
+      var campParam = params.get("camp");
+      if (campParam) {
+        var paramLower = campParam.toLowerCase();
         for (var i = 0; i < CAMPS.length; i++) {
-          if (CAMPS[i].name === saved) { savedIndex = i; break; }
+          if (CAMPS[i].name.toLowerCase() === paramLower) { startIndex = i; break; }
+        }
+      } else {
+        var saved = localStorage.getItem("selectedCamp");
+        if (saved) {
+          for (var i = 0; i < CAMPS.length; i++) {
+            if (CAMPS[i].name === saved) { startIndex = i; break; }
+          }
         }
       }
-      var startIndex = savedIndex >= 0 ? savedIndex : CAMPS.length - 1;
+
       select.value = startIndex;
       selectCamp(startIndex);
 
